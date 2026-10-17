@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Decompression Simulator</title>
+<style>
+:root{color-scheme:dark;--t:0;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html,body{height:100%;margin:0;overflow:hidden;background:#040406;overscroll-behavior:none;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;color:#b9b4ae}
+/* ambient glow reacting to ember intensity */
+#glow{position:fixed;left:0;top:0;width:900px;height:900px;pointer-events:none;opacity:0;will-change:transform,opacity;background:radial-gradient(circle,rgba(255,120,45,.5),rgba(130,32,10,.18) 38%,transparent 68%)}
+#smoke{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
+/* ---------- cigarette ---------- */
+#cig{position:absolute;left:50%;bottom:calc(150px + env(safe-area-inset-bottom,0px));width:36px;margin-left:-18px;display:flex;flex-direction:column;transform-origin:50% 100%;z-index:1}
+#filter{height:120px;position:relative;border-radius:0 0 5px 5px;box-shadow:0 8px 18px rgba(0,0,0,.6);
+background:linear-gradient(90deg,rgba(0,0,0,.6),rgba(0,0,0,0) 22%,rgba(255,235,200,.38) 42%,rgba(0,0,0,0) 62%,rgba(0,0,0,.65)),
+radial-gradient(circle at 20% 30%,rgba(90,50,20,.5) 0 1.2px,transparent 1.7px) 0 0/9px 11px,
+radial-gradient(circle at 70% 60%,rgba(255,220,170,.35) 0 1px,transparent 1.5px) 0 0/7px 8px,
+radial-gradient(circle at 45% 80%,rgba(70,35,10,.45) 0 1.4px,transparent 2px) 0 0/13px 10px,
+repeating-linear-gradient(0deg,rgba(0,0,0,.07) 0 1px,transparent 1px 3px),#c88a4e}
+#filter::before{content:"";position:absolute;left:0;right:0;top:0;height:7px;border-bottom:1px solid rgba(0,0,0,.45);background:linear-gradient(90deg,#5a3d0a,#c9a13a 22%,#fff0b0 46%,#b88a22 74%,#4d3308)}
+#paper{height:280px;overflow:hidden;box-shadow:inset 0 -12px 12px -8px rgba(0,0,0,.3);
+background:linear-gradient(90deg,rgba(0,0,0,.42),rgba(0,0,0,0) 24%,rgba(255,255,255,.55) 44%,rgba(0,0,0,0) 68%,rgba(0,0,0,.5)),
+repeating-linear-gradient(0deg,rgba(110,100,80,.2) 0 1px,transparent 1px 47px),#efebe0}
+#paper{position:relative}#paper::before{content:"";position:absolute;left:0;right:0;top:0;height:16px;opacity:var(--sc,0);background:linear-gradient(180deg,rgba(95,60,28,.75),rgba(150,110,60,.28) 55%,transparent)}
+#char{height:0;margin:0 1px;clip-path:polygon(0 30%,12% 0,25% 40%,40% 5%,55% 45%,70% 0,85% 35%,100% 10%,100% 100%,0 100%);background:linear-gradient(180deg,#1a0f09,#4a2a12 60%,#7a3d12)}
+#ember{height:16px;position:relative;border-radius:3px 3px 5px 5px/6px 6px 3px 3px;background:#2b2928}
+#ember.unlit{background:radial-gradient(circle at 30% 40%,#3a2614 0 2px,transparent 2.5px) 0 0/7px 6px,linear-gradient(90deg,#4a3320,#8a6a45 45%,#3d2a18)}
+#ember.dead{background:#2a2928}
+#ember::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:calc(1 - var(--t)*1.35);
+background:radial-gradient(circle at 25% 40%,rgba(160,160,160,.85) 0 2px,transparent 2.6px) 0 0/13px 9px,radial-gradient(circle at 70% 30%,rgba(195,195,195,.7) 0 1.5px,transparent 2px) 0 0/19px 14px,radial-gradient(circle at 40% 70%,rgba(120,120,125,.7) 0 1.8px,transparent 2.4px) 3px 2px/23px 11px}
+#ash{margin:0 1px;height:0;overflow:hidden;border-radius:7px 6px 2px 2px/9px 8px 2px 2px;
+background:repeating-linear-gradient(80deg,transparent 0 7px,rgba(25,25,25,.55) 7px 8px,transparent 8px 15px),repeating-linear-gradient(-68deg,transparent 0 11px,rgba(40,40,40,.45) 11px 12px,transparent 12px 21px),linear-gradient(90deg,#4a4a4d,#9c9c9f 40%,#c9c9cb 56%,#6e6e72 86%,#3d3d40);
+box-shadow:inset 0 -10px 12px -4px rgba(255,110,40,calc(var(--t)*.7))}
+.crush #ember,.crush #char-line{animation:sq .5s forwards}.crush #ash{animation:sq .5s forwards}
+@keyframes sq{to{transform:scale(1.3,.3) translateY(4px);opacity:.45}}
+#flame{position:absolute;left:50%;bottom:100%;width:22px;height:48px;margin-left:-11px;opacity:0;transition:opacity .15s;transform-origin:50% 100%;pointer-events:none;border-radius:50% 50% 45% 45%/70% 70% 30% 30%;filter:blur(1px);
+background:radial-gradient(ellipse at 50% 82%,#fff 0,#ffe9a0 22%,#ff9a2e 52%,rgba(255,80,0,0) 76%);box-shadow:0 0 30px 8px rgba(255,150,40,.3);animation:fl .11s infinite alternate}
+#flame::before{content:"";position:absolute;left:25%;right:25%;bottom:0;height:35%;border-radius:50%;background:radial-gradient(#5aa0ff,rgba(60,110,255,0) 80%)}
+#flame.on{opacity:1}
+@keyframes fl{from{transform:scale(1,.93) skewX(-3deg)}to{transform:scale(.94,1.06) skewX(3deg)}}
+/* ---------- UI ---------- */
+#bar{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;gap:4px;padding:4px;border-radius:999px;background:rgba(255,255,255,.05);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:5}
+.opt{all:unset;display:flex;align-items:center;gap:7px;padding:8px 13px;border-radius:999px;font-size:14px;color:#8d8882;cursor:pointer}
+.opt i{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.opt.on{background:rgba(255,255,255,.1);color:#e6e1da}
+#hint{position:fixed;left:0;right:0;bottom:calc(20px + env(safe-area-inset-bottom,0px));text-align:center;font-size:15px;font-style:italic;color:#8a857e;z-index:4;pointer-events:none;min-height:20px}
+#lighter,#stub{position:fixed;left:50%;bottom:calc(58px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:5;transition:opacity .4s}
+#lighter{left:0;top:0;bottom:auto;width:0;height:0;perspective:520px;perspective-origin:0 60px;pointer-events:none;transform:none}
+#lbody{position:absolute;left:-27px;top:0;width:54px;height:100px;transform-style:preserve-3d;transform-origin:50% 60%}
+.lf{position:absolute;backface-visibility:hidden}
+.lfr,.lbk{left:0;top:22px;width:54px;height:78px;border-radius:4px 4px 7px 7px;background:linear-gradient(0deg,transparent 56%,rgba(184,34,26,.9) 56% 64%,transparent 64%),linear-gradient(90deg,#2b2d33,#8a8e98 20%,#d3d6de 36%,#7a7e88 54%,#23252a),#555}
+.lfr{transform:translateZ(12px)}.lbk{transform:rotateY(180deg) translateZ(12px)}
+.llt,.lrt{left:15px;top:22px;width:24px;height:78px;background:linear-gradient(90deg,#15161a,#4f525a 50%,#15161a)}
+.llt{transform:rotateY(-90deg) translateZ(27px)}.lrt{transform:rotateY(90deg) translateZ(27px)}
+.ltp{left:0;top:10px;width:54px;height:24px;background:linear-gradient(90deg,#4a4e57,#c8ccd4 50%,#4a4e57);transform:rotateX(90deg)}
+#lch{position:absolute;left:12px;top:0;width:30px;height:25px;border-radius:7px 7px 2px 2px;background:radial-gradient(circle,rgba(0,0,0,.65) 0 1.5px,transparent 2px) 0 0/7px 7px,linear-gradient(90deg,#34363c,#dfe2e9 32%,#8b8f99 62%,#25272c);transform:translateZ(0)}
+#lflame{position:absolute;left:-11px;top:-50px;width:22px;height:50px;opacity:0;transition:opacity .12s;transform-origin:50% 100%;pointer-events:none}
+#lflame.on{opacity:1}
+#lflame .fi{width:100%;height:100%;border-radius:50% 50% 45% 45%/70% 70% 30% 30%;filter:blur(1px);background:radial-gradient(ellipse at 50% 82%,#fff 0,#ffe9a0 22%,#ff9a2e 52%,rgba(255,80,0,0) 76%);box-shadow:0 0 36px 10px rgba(255,150,40,.35);animation:fl .11s infinite alternate;transform-origin:50% 100%}
+.fg{position:absolute;pointer-events:none;height:30px;width:150px;border-radius:15px 8px 8px 15px;background:linear-gradient(180deg,#f0b898 0,#d49270 38%,#a8654a 80%,#7a432f),repeating-linear-gradient(90deg,transparent 0 22px,rgba(90,40,25,.18) 22px 24px);filter:brightness(calc(.16 + var(--t)*.6))}
+.fg1{left:20px;bottom:60px;transform:rotate(-7deg);z-index:2;filter:brightness(calc(.16 + var(--t)*.6)) drop-shadow(-3px 4px 4px rgba(0,0,0,.65))}
+.fg1::after{content:"";position:absolute;left:7px;top:4px;width:22px;height:13px;border-radius:50%;background:linear-gradient(180deg,#f6d4c4,#d9a58e);opacity:.8}
+.fg2{left:-22px;bottom:30px;transform:rotate(5deg);z-index:-1}
+#lighter.off{opacity:0;pointer-events:none}
+#wheel{position:absolute;left:35px;top:6px;width:20px;height:20px;border-radius:50%;background:repeating-conic-gradient(#c2ae72 0 14deg,#5b4f2a 14deg 28deg);box-shadow:0 2px 5px rgba(0,0,0,.7);cursor:grab;pointer-events:auto;transform:translateZ(14px);transition:transform .25s}#wheel::after{content:"";position:absolute;inset:-16px}
+#wheel.spin{transform:translateZ(14px) rotate(200deg)}
+#stub{all:unset;position:fixed;left:50%;bottom:calc(58px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);padding:13px 30px;border-radius:999px;background:rgba(255,255,255,.09);color:#e6e1da;font-size:16px;cursor:pointer;z-index:5;opacity:0;pointer-events:none;transition:opacity .5s}
+#stub.show{opacity:1;pointer-events:auto}
+#panel{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:6;background:rgba(4,4,6,.82);opacity:0;pointer-events:none;transition:opacity .8s;text-align:center;padding:24px}
+#panel.show{opacity:1;pointer-events:auto}
+#panel p{margin:0;font-size:16px;color:#948f88;line-height:1.5}
+#panel b{font-weight:normal;font-size:44px;color:#e6e1da;display:block}
+#again{all:unset;margin-top:10px;padding:12px 26px;border-radius:999px;border:1px solid rgba(255,255,255,.18);color:#d8d3cc;font-size:16px;cursor:pointer}
+#ember,#ash,#char-line{filter:url(#organic-burn)}
+#ash{position:relative;transform-origin:50% 100%}
+#ash::after{content:"";position:absolute;left:0;right:0;bottom:0;height:24px;opacity:calc(var(--t)*1.15);mix-blend-mode:screen;background:radial-gradient(ellipse 38% 70% at 26% 100%,#fffbe6 0,#ff6a00 38%,#800900 68%,transparent 100%),radial-gradient(ellipse 30% 55% at 70% 100%,#ffd9a0 0,#ff6a00 40%,#800900 70%,transparent 100%),radial-gradient(ellipse 22% 40% at 50% 85%,#ff6a00 0,#800900 60%,transparent 100%)}
+#paper::after{content:"";position:absolute;left:0;right:0;top:0;height:12px;opacity:var(--g,0);background:linear-gradient(180deg,rgba(255,150,50,.8),rgba(255,190,110,.35) 60%,transparent);box-shadow:0 2px 12px rgba(255,140,40,.7)}
+#filter::after{content:"";position:absolute;left:0;right:0;top:7px;height:16px;opacity:var(--fb,0);background:linear-gradient(180deg,rgba(25,12,4,.92),rgba(60,30,10,.5) 60%,transparent)}
+#bloom{position:absolute;left:0;top:0;width:100%;height:16px;border-radius:5px;pointer-events:none}
+#stub{left:calc(50% - 5px);transform:translateX(-100%)}
+#fresh{all:unset;position:fixed;left:calc(50% + 5px);bottom:calc(58px + env(safe-area-inset-bottom,0px));padding:13px 22px;border-radius:999px;border:1px solid rgba(255,255,255,.18);color:#d8d3cc;font-size:16px;cursor:pointer;z-index:5;opacity:0;pointer-events:none;transition:opacity .5s}
+#fresh.show{opacity:1;pointer-events:auto}
+</style>
+</head>
+<body>
+<div id="glow"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><filter id="organic-burn" x="-30%" y="-80%" width="160%" height="260%"><feTurbulence id="burn-turb" type="fractalNoise" baseFrequency="0.15" numOctaves="4" seed="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/></filter></defs></svg>
+<div id="cig">
+  <i class="fg fg2"></i><i class="fg fg1"></i><div id="bloom"></div><div id="flame"></div>
+  <div id="ash"></div><div id="ember" class="unlit"></div><div id="char-line"></div><div id="paper"></div><div id="filter"></div>
+</div>
+<canvas id="smoke"></canvas>
+<div id="bar">
+  <button class="opt" data-s="heavy" style="--c:#c8321e"><i></i>Heavy</button>
+  <button class="opt on" data-s="medium" style="--c:#2f6fd0"><i></i>Medium</button>
+  <button class="opt" data-s="light" style="--c:#ececec"><i></i>Light</button>
+</div>
+<div id="lighter"><div id="lbody"><div class="lf lbk"></div><div class="lf llt"></div><div class="lf lrt"></div><div class="lf ltp"></div><div id="lch"></div><div class="lf lfr"></div><div id="wheel"></div></div><div id="lflame"><div class="fi"></div></div></div>
+<button id="stub">Stub out</button><button id="fresh">Light a fresh one</button>
+<div id="hint"></div>
+<div id="panel"><p>Real cigarettes replaced today</p><b id="count">0</b><p>Cravings usually fade within a few minutes.</p><button id="again">Light another</button></div>
+<script>
+(()=>{
+"use strict";
+const $=s=>document.querySelector(s);
+const cig=$('#cig'),ashE=$('#ash'),emb=$('#ember'),chr=$('#char-line'),bloom=$('#bloom'),pap=$('#paper'),flm=$('#flame'),glow=$('#glow'),cv=$('#smoke'),ctx=cv.getContext('2d');
+const root=document.documentElement,lighter=$('#lighter'),lbody=$('#lbody'),lfl=$('#lflame'),wheel=$('#wheel'),stubB=$('#stub'),freshB=$('#fresh'),panel=$('#panel'),hintE=$('#hint');
+
+/* ---------- Tunables per draw strength ---------- */
+const ST={
+  heavy :{burn:.75,air:1.15,af:.85,crack:1.6,hp:1400,dens:1.4},
+  medium:{burn:1  ,air:1   ,af:1  ,crack:1  ,hp:2200,dens:1},
+  light :{burn:1.3,air:.65 ,af:1.2,crack:.7 ,hp:3800,dens:.7}};
+let strength='medium';
+const FULL=280, ASH_MAX=35, MIN_PAPER=4;
+
+/* ---------- State ---------- */
+const S={lit:false,dead:false,ig:0,flameUntil:0,drawing:false,drawT:0,temp:0,paper:FULL,ash:0,
+  inhaledSmokeVolume:0,mic:false,vel:0,hold:null,holdTimer:0,releasedAt:0,t:0,vibT:0,emit:0,sideAcc:0,smolder:0,fbK:0,inhDark:0,haze:0,lift:0};
+const KEY='cdsim.count';
+const today=()=>new Date().toLocaleDateString('en-CA');
+function loadCount(){try{const o=JSON.parse(localStorage.getItem(KEY)||'{}');return o.d===today()?o.n:0}catch(e){return 0}}
+function saveCount(n){try{localStorage.setItem(KEY,JSON.stringify({d:today(),n}))}catch(e){}}
+const vib=p=>{try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}};
+
+/* ================= PROCEDURAL AUDIO ================= */
+let AC,master,noiseW,A={};
+function initAudio(){
+  if(AC){if(AC.state==='suspended')AC.resume();return}
+  try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){return}
+  master=AC.createGain();master.gain.value=.9;master.connect(AC.destination);
+  const n=AC.sampleRate*2,pink=AC.createBuffer(1,n,AC.sampleRate);noiseW=AC.createBuffer(1,n,AC.sampleRate);
+  const w=noiseW.getChannelData(0),p=pink.getChannelData(0);let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+  for(let i=0;i<n;i++){const x=Math.random()*2-1;w[i]=x; // Paul Kellet pink-noise filter
+    b0=.99886*b0+x*.0555179;b1=.99332*b1+x*.0750759;b2=.969*b2+x*.153852;b3=.8665*b3+x*.3104856;b4=.55*b4+x*.5329522;b5=-.7616*b5-x*.016898;
+    p[i]=(b0+b1+b2+b3+b4+b5+b6+x*.5362)*.11;b6=x*.115926}
+  const loop=(buf,type,f,q)=>{const s=AC.createBufferSource();s.buffer=buf;s.loop=true;const fl=AC.createBiquadFilter();fl.type=type;fl.frequency.value=f;fl.Q.value=q;const g=AC.createGain();g.gain.value=0;s.connect(fl);fl.connect(g);g.connect(master);s.start();return{g:g.gain,f:fl.frequency}};
+  A.draw=loop(pink,'bandpass',1000,.9);   // inhalation hiss
+  A.deep=loop(pink,'lowpass',260,.7);     // heavy-draw body
+  A.flame=loop(noiseW,'lowpass',900,.5);  // butane hiss
+  A.exh=loop(pink,'lowpass',450,.4);A.burn=loop(noiseW,'highpass',6500,.5);A.warm=loop(pink,'bandpass',220,.9);      // exhale rush
+}
+// short filtered noise burst with exponential decay
+function burst(dur,type,freq,q,gain,rate,pan){
+  if(!AC)return;const s=AC.createBufferSource();s.buffer=noiseW;s.playbackRate.value=rate||1;
+  const f=AC.createBiquadFilter();f.type=type;f.frequency.value=freq;f.Q.value=q;
+  const g=AC.createGain(),t=AC.currentTime;g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(f);f.connect(g);if(pan&&AC.createStereoPanner){const pn=AC.createStereoPanner();pn.pan.value=pan;g.connect(pn);pn.connect(master)}else g.connect(master);s.start(t,Math.random()*1.5,dur+.02)}
+function tink(freq,dur,vol){ // resonant metallic ping
+  if(!AC)return;const o=AC.createOscillator(),f=AC.createBiquadFilter(),g=AC.createGain(),t=AC.currentTime;
+  o.type='sawtooth';o.frequency.value=freq;f.type='bandpass';f.frequency.value=freq;f.Q.value=14;
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(f);f.connect(g);g.connect(master);o.start(t);o.stop(t+dur+.02)}
+function lighterSound(){
+  burst(.09,'bandpass',3600,10,.75);tink(4300,.05,.12);setTimeout(()=>tink(3100,.04,.08),35);
+  setTimeout(()=>burst(.9,'lowpass',700,.6,.55),90)}            // flint strike then whoosh
+function crackle(){const P=ST[strength];                          // dry leaf / paper-ring snap
+  burst(.012+Math.random()*.02,Math.random()<.3?'bandpass':'highpass',P.hp*(.5+Math.random()*1.1),.6+Math.pow(Math.random(),3)*16,(.1+Math.random()*.3)*P.crack,.7+Math.random()*1.9,(Math.random()*2-1)*.8);S.pop=1;if(S.drawing&&Math.random()<.5)D.push({x:tipX+(Math.random()-.5)*12*sc,y:tipY+8*sc,vx:(Math.random()-.5)*60,vy:-30-Math.random()*60,life:.5,age:0,c:'#ffd27a',s:1.4*sc,g:-10})}
+function stubSound(){burst(1.3,'highpass',5000,.5,.35);burst(.5,'bandpass',2500,2,.2);burst(.12,'lowpass',500,1,.4)}
+
+/* ================= MICROPHONE (exhale) ================= */
+let an,mbuf,micTried=false,baseline=.008;
+async function initMic(){
+  if(micTried||!AC)return;micTried=true;
+  try{const st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    an=AC.createAnalyser();an.fftSize=1024;mbuf=new Float32Array(1024);AC.createMediaStreamSource(st).connect(an);S.mic=true}
+  catch(e){S.mic=false}}
+function micVel(){ // blowing noise RMS above an adaptive noise floor -> 0..1.5
+  an.getFloatTimeDomainData(mbuf);let s=0;for(let i=0;i<mbuf.length;i++)s+=mbuf[i]*mbuf[i];
+  const r=Math.sqrt(s/mbuf.length);if(r<baseline*1.5)baseline=baseline*.99+r*.01;
+  return Math.min(1.5,Math.max(0,(r-baseline*1.8-.015)*12))}
+
+/* ================= SMOKE / PARTICLES ================= */
+let W=0,H=0,dpr=1,sc=1;
+function resize(){dpr=Math.min(devicePixelRatio||1,1.5);W=innerWidth;H=innerHeight;cv.width=W*dpr;cv.height=H*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
+  sc=Math.max(.5,Math.min(1.25,(H-150-90)/500));cig.style.transform='scale('+sc+')'}
+addEventListener('resize',resize);
+function sprite(r,g,b){const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d'),gr=x.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,`rgba(${r},${g},${b},.9)`);gr.addColorStop(.5,`rgba(${r},${g},${b},.35)`);gr.addColorStop(1,`rgba(${r},${g},${b},0)`);x.fillStyle=gr;x.fillRect(0,0,64,64);return c}
+const SS=sprite(150,170,200),SM=sprite(226,229,233),SW=sprite(255,165,100),SD=sprite(78,78,84);
+const P=[],D=[]; // smoke particles, ash/spark dots
+function spawnSide(x,y){if(P.length>600)return;
+  P.push({t:0,x:x+(Math.random()-.5)*2,y,vx:0,vy:-(40+Math.random()*6)*sc,r:1.5,gr:0,life:5+Math.random()*2.5,age:0,seed:Math.random()*6.28,a:.14+Math.random()*.04,d:0,tb:0,dk:S.fbK>.3?1:0})}
+function spawnMain(){if(P.length>1000)return;
+  P.push({t:1,x:W*(.2+Math.random()*.6),y:H+30,vx:(Math.random()-.5)*60,vy:-(160+Math.random()*180)*(.7+S.vel*.5),r:34+Math.random()*44,gr:28+Math.random()*44,life:4.5+Math.random()*3,age:0,seed:Math.random()*6.28,a:.14+Math.random()*.1+(S.inhDark>.4?.06:0),dk:S.inhDark>.4?1:0})}
+let tipX=0,tipY=0;
+function dots(n,spark,fall,px,py){const g=['#6b6b6e','#4a4a4d','#85858a','#38383b'];
+  for(let i=0;i<n;i++){const o=spark&&i%3===0;
+    D.push({x:(px??tipX)+(Math.random()-.5)*20*sc,y:(py??tipY)+(fall?2:0),vx:(Math.random()-.5)*(fall?90:170),vy:Math.random()*40-12,vr:(Math.random()-.5)*12,rot:Math.random()*6,life:.8+Math.random()*.7,age:0,c:o?'#ff9a3c':g[i%4],s:(1.5+Math.random()*2.5)*sc})}}
+function chunk(h){D.push({x:tipX-9*sc,y:tipY,vx:(Math.random()-.5)*20,vy:0,life:1.6,age:0,c:'#a9a9ac',s:18*sc,h:Math.max(8,h)*sc,rot:0,vr:(Math.random()-.5)*4,chunk:1})}
+function flick(){if(!S.lit||S.ash<1)return;dots(20,S.temp>.4,false);S.ash=0;vib([15,30,10]);burst(.05,'bandpass',1800,3,.18)}
+
+/* ================= INPUT ================= */
+['gesturestart','gesturechange','contextmenu'].forEach(e=>addEventListener(e,ev=>ev.preventDefault()));
+addEventListener('touchmove',e=>e.preventDefault(),{passive:false});
+function startDraw(){S.drawing=true;S.drawT=0}
+function endDraw(){if(S.drawing&&S.lit)burst(.08,'bandpass',900,2,.12);S.drawing=false;S.releasedAt=performance.now()}
+addEventListener('pointerdown',e=>{
+  if(e.target.closest('#bar,#lighter,#stub,#fresh,#panel'))return;e.preventDefault();initAudio();
+  if(S.hold)return;S.hold=e.pointerId;S.holdT=performance.now();S.holdTimer=setTimeout(()=>{if(S.hold!==null)startDraw()},180)});
+function up(){if(S.hold===null)return;clearTimeout(S.holdTimer);const d=performance.now()-S.holdT;S.hold=null;
+  if(S.drawing)endDraw();else if(d<180)flick()}
+S.hold=null;addEventListener('pointerup',up);addEventListener('pointercancel',up);
+// lighter wheel: swipe/flick (or tap) to strike
+let ls=null;
+wheel.addEventListener('pointerdown',e=>{e.preventDefault();initAudio();ls={x:e.clientX,y:e.clientY,t:performance.now()};try{wheel.setPointerCapture(e.pointerId)}catch(_){}});
+wheel.addEventListener('pointermove',e=>{if(ls&&Math.hypot(e.clientX-ls.x,e.clientY-ls.y)>34){ls=null;strike()}});
+wheel.addEventListener('pointerup',()=>{if(ls&&performance.now()-ls.t<400)strike();ls=null});
+function strike(){
+  if(S.lit||S.dead)return;initAudio();initMic();lighterSound();vib(12);
+  try{if(window.DeviceMotionEvent&&DeviceMotionEvent.requestPermission)DeviceMotionEvent.requestPermission().catch(()=>{})}catch(e){}
+  wheel.classList.add('spin');setTimeout(()=>wheel.classList.remove('spin'),260);
+  S.flameUntil=performance.now()+7000}
+// shake to flick
+// air currents: pointer movement + device tilt push the smoke
+const M={x:-999,y:-999,vx:0};let tilt=0,lastMT=0;
+addEventListener('pointermove',e=>{const n=performance.now(),d=Math.max(8,n-lastMT);if(M.x>-900)M.vx+=((e.clientX-M.x)/d*1000-M.vx)*.5;M.x=e.clientX;M.y=e.clientY;lastMT=n});
+addEventListener('deviceorientation',e=>{tilt=Math.max(-30,Math.min(30,e.gamma||0))});
+function air(p){let a=tilt*1.2;const dx=p.x-M.x,dy=p.y-M.y,d2=dx*dx+dy*dy;if(d2<28900){const f=1-Math.sqrt(d2)/170;a+=(M.vx*.25+Math.sign(dx)*40*Math.min(1,Math.abs(M.vx)/300))*f*f}return a}
+function nz(a,b){return Math.sin(a*1.7+b*2.3)*.6+Math.sin(a*3.3-b*1.1+1.7)*.3+Math.sin(a*6.1+b*4.7+4.2)*.15}
+let lastShake=0;
+addEventListener('devicemotion',e=>{const a=e.accelerationIncludingGravity;if(!a)return;const m=Math.hypot(a.x||0,a.y||0,a.z||0),n=performance.now();
+  if(Math.abs(m-9.8)>16&&n-lastShake>800){lastShake=n;flick()}});
+document.querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>{strength=b.dataset.s;document.querySelectorAll('.opt').forEach(o=>o.classList.toggle('on',o===b))}));
+stubB.addEventListener('click',()=>{ // press and crush
+  if(!S.lit)return;initAudio();stubSound();vib([20,40,30]);S.lit=false;S.dead=true;endDraw();S.smolder=4;
+  cig.classList.add('crush');dots(22,true,false);dots(16,false,true);saveCount(loadCount()+1);
+  setTimeout(()=>{if(S.fresh){S.fresh=false;newCig();return}$('#count').textContent=loadCount();panel.classList.add('show')},1100)});
+function newCig(){
+  Object.assign(S,{lit:false,dead:false,ig:0,flameUntil:0,temp:0,paper:FULL,ash:0,inhaledSmokeVolume:0,smolder:0});
+  cig.classList.remove('crush');panel.classList.remove('show')}
+$('#again').addEventListener('click',newCig);freshB.addEventListener('click',()=>{S.fresh=true;stubB.click()});
+
+/* ================= SIMULATION ================= */
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+const C1=[[122,29,12],[255,251,230]],C2=[[61,18,8],[255,106,0]],C3=[[26,26,26],[128,9,0]];
+function update(dt){
+  const Pm=ST[strength],now=performance.now();S.t+=dt;
+  const flameOn=S.flameUntil>now&&!S.lit&&!S.dead;
+  S.drawT=S.drawing?S.drawT+dt:0;
+  const fbOn=S.lit&&S.drawing&&S.paper<=MIN_PAPER+.01;S.fbK+=((fbOn?1:0)-S.fbK)*(1-Math.exp(-dt*3));if(fbOn)S.inhDark=Math.min(1,S.inhDark+dt);
+  // Phase 1: ignition - draw while the flame is held to the tip
+  if(!S.lit&&!S.dead){S.ig=flameOn&&S.drawing?S.ig+dt/1.1:Math.max(0,S.ig-dt*.7);
+    if(S.ig>=1){S.lit=true;S.ig=1;S.flameUntil=0;vib(10);tink(2400,.06,.12);burst(.3,'lowpass',900,1,.22);for(let i=0;i<12;i++)spawnSide(tipX,tipY)}}
+  if(S.lit){ // burning: paper shrinks, ash grows, smoke volume stored
+    let rate=(S.drawing?5.5:.8)*Pm.burn;if(S.paper<=MIN_PAPER)rate=0;
+    const b=Math.min(rate*dt,S.paper-MIN_PAPER);S.paper-=b;S.ash+=b*.55;
+    if(S.drawing)S.inhaledSmokeVolume=Math.min(6,S.inhaledSmokeVolume+dt*Pm.dens*1.6);
+    if(S.ash>ASH_MAX){chunk(S.ash);S.ash=0;vib(12)} // gravity drops overgrown ash
+    if(S.drawing&&S.temp>.6&&now-S.vibT>450){S.vibT=now;vib(5)}
+  }
+  const tgt=S.dead?0:S.lit?(S.drawing?1:.14):S.ig*.55;
+  S.temp+=(tgt-S.temp)*(1-Math.exp(-dt*(tgt>S.temp?1.3:1.1)));
+  // Phase 3: exhale
+  const mv=an?micVel():0;let vel=0;
+  if(S.inhaledSmokeVolume>.01&&!S.drawing){
+    vel=S.mic?mv:(now-S.releasedAt>500?.7:0);
+    if(S.mic&&vel===0&&now-S.releasedAt>9000)vel=.6; // fallback if no blow detected
+  }
+  S.vel=vel;
+  if(vel>0){const take=Math.min(S.inhaledSmokeVolume,vel*1.7*dt);S.inhaledSmokeVolume-=take;S.haze=Math.min(1,(S.haze||0)+take*.2);S.inhDark=Math.max(0,S.inhDark-take*.45);S.emit+=take*95;while(S.emit>=1){spawnMain();S.emit--}}
+  // audio modulation
+  if(AC){const t=AC.currentTime;
+    A.draw.g.setTargetAtTime(S.drawing?Math.min(1,S.drawT/.35)*.22*Pm.air*(.85+.15*Math.sin(S.t*9)+Math.random()*.12)*(1-Math.min(.35,S.drawT*.08)):0,t,.05);A.burn.g.setTargetAtTime(S.lit?.012+(S.drawing?.03*S.temp:0)+.06*S.fbK:0,t,.2);
+    A.draw.f.setTargetAtTime((800+400*Math.min(1,S.drawT/2.5))*Pm.af*(1-.55*S.fbK),t,.1);A.warm.g.setTargetAtTime(S.drawing?Math.min(1,S.drawT/.4)*.2*Pm.air:0,t,.1);A.warm.f.setTargetAtTime(150+150*Math.min(1,S.drawT/2.5),t,.2);
+    A.deep.g.setTargetAtTime(S.drawing?.1*(strength==='heavy'?1:strength==='medium'?.3:0):0,t,.1);
+    A.flame.g.setTargetAtTime(flameOn?.05:0,t,.1);
+    A.exh.g.setTargetAtTime(vel>0?Math.min(1,vel)*.22*(.82+.18*Math.sin(S.t*5)):0,t,.05);A.exh.f.setTargetAtTime(350+vel*300,t,.1);
+    if(S.lit&&Math.random()<((S.drawing?16*Math.min(1,.3+S.temp):.5)*Pm.crack)*dt)crackle();
+  }
+  // UI state
+  lighter.classList.toggle('off',S.lit||S.dead);
+  stubB.classList.toggle('show',S.lit&&S.paper<=MIN_PAPER+.01);freshB.classList.toggle('show',S.lit&&S.paper<=MIN_PAPER+.01);
+  lfl.classList.toggle('on',flameOn);
+  let h='';
+  if(!S.dead&&!(S.lit&&S.paper<=MIN_PAPER+.01)){
+    if(!S.lit)h=flameOn?'Hold anywhere to draw the flame in':'Swipe the lighter wheel';
+    else if(S.inhaledSmokeVolume>.05&&!S.drawing)h=S.mic?'Blow toward your microphone to exhale':'Exhale…';
+    else h=S.ash>12?'Tap to flick the ash':'Hold to inhale'}
+  if(S.lit&&S.paper<=MIN_PAPER+.01)h=S.drawing?'That’s the filter. It tastes like regret.':'You’ve reached the filter. That’s all the cigarette has.';
+  if(hintE.textContent!==h)hintE.textContent=h;
+}
+const turb=$('#burn-turb');let edgeK=-1;
+// uneven pyrolysis edge: one side dips, shape + noise seed shift as the paper shortens
+function burnEdge(){const k=Math.floor(S.paper/3);if(k===edgeK)return;edgeK=k;const s=k*.83,pts=[];
+  for(let i=0;i<=8;i++){const y=(Math.sin(s+i*1.7)*.5+.5)*40+Math.sin(i*5.1+s*3)*12+(i/8-.5)*Math.sin(s*1.3)*50+20;pts.push((i*12.5)+'% '+Math.max(0,Math.min(75,y))+'%')}
+  chr.style.clipPath='polygon('+pts.join(',')+',100% 100%,0 100%)';turb.setAttribute('seed',k%97)}
+// 3D lighter: rests at the side, swings in front of the cigarette tip when struck, retracts once lit
+let Lp=0,lean=0;
+function lighterFrame(dt){
+  const on=S.flameUntil>performance.now()&&!S.lit&&!S.dead;
+  Lp+=((on?1:0)-Lp)*(1-Math.exp(-dt*(on?4.5:3.5)));lean+=((on&&S.drawing?1:0)-lean)*(1-Math.exp(-dt*8));
+  const e=Lp*Lp*(3-2*Lp),rx=Math.min(W-62,W/2+120),ry=H-168,
+  tx=tipX+(10-4*lean)*sc+Math.sin(S.t*3.1)*e*.8,ty=tipY+30*sc+Math.cos(S.t*2.3)*e*.8,
+  x=rx+(tx-rx)*e,y=ry+(ty-ry)*e-Math.sin(Math.PI*e)*30,rz=-14*e+Math.sin(S.t*.9)*2*(1-e),ls=1+(Math.max(.7,.85*sc)-1)*e;
+  lighter.style.transform=`translate(${x}px,${y}px) rotate(${rz}deg) scale(${ls})`;
+  lbody.style.transform=`rotateX(-18deg) rotateY(${(-22+Math.sin(S.t*.8)*14)*(1-e)-30*e}deg)`;
+  lfl.style.transform=`scaleY(${1-.22*lean}) skewX(${-16*lean}deg)`}
+function render(dt){lighterFrame(dt);
+  S.pop=(S.pop||0)*Math.exp(-dt*12);const fl=S.lit?1+(Math.random()-.5)*.1+Math.sin(S.t*23)*.03+S.pop*.18:1,t=Math.min(1,S.temp*fl);root.style.setProperty('--t',t.toFixed(3));root.style.setProperty('--sc',S.lit||S.dead?1:0);root.style.setProperty('--fb',S.fbK.toFixed(3));root.style.setProperty('--g',S.lit?Math.max(0,(t-.25)*1.3).toFixed(3):0);
+  S.lift=(S.lift||0)+((S.drawing?1:0)-(S.lift||0))*(1-Math.exp(-dt*6));S.haze=Math.max(0,(S.haze||0)-dt*.03);
+  const sw=Math.sin(S.t*.8)*.7+Math.sin(S.t*2.3)*.25-S.lift*1.2+1.5;cig.style.transform=`translateY(${-10*sc*S.lift}px) rotate(${sw}deg) scale(${sc})`;
+  pap.style.height=S.paper+'px';ashE.style.height=S.ash+'px';ashE.style.transform='rotate('+(Math.min(1,S.ash/ASH_MAX)*1.5).toFixed(2)+'deg)'; // ash bends under its own weight
+  emb.classList.toggle('unlit',!S.lit&&!S.dead&&S.ig<.05);emb.classList.toggle('dead',S.dead);
+  if(S.lit||S.ig>=.05&&!S.dead){
+    let c1=mix(C1[0],C1[1],t),c2=mix(C2[0],C2[1],t),c3=mix(C3[0],C3[1],t);
+    if(S.fbK>.01){c1=mix(c1,[205,115,40],S.fbK);c2=mix(c2,[140,62,18],S.fbK);c3=mix(c3,[48,24,10],S.fbK)} // harsh filter-burn colours
+    const c1b=mix(c1,c2,.3);
+    emb.style.background=`radial-gradient(ellipse 45% 75% at 28% 35%,rgb(${c1}) 0,rgb(${c2}) 48%,transparent 100%),radial-gradient(ellipse 38% 65% at 72% 58%,rgb(${c1b}) 0,rgb(${c2}) 52%,transparent 100%),radial-gradient(ellipse 18% 40% at 52% 25%,rgb(${c1}) 0,transparent 100%),radial-gradient(ellipse 110% 150% at 50% 40%,rgb(${c2}) 0,rgb(${c3}) 70%,#1a1a1a 100%)`;
+    bloom.style.top=S.ash+'px';bloom.style.boxShadow=`0 0 ${8+70*t}px ${2+14*t}px rgba(255,${110+100*t*(1-S.fbK*.5)|0},${30+60*t*(1-S.fbK*.6)|0},${.15+.75*t})`;
+    chr.style.height=S.lit?'6px':'0';chr.style.boxShadow='none';burnEdge();
+  }else{emb.style.background='';bloom.style.boxShadow='none';chr.style.height=S.dead?'6px':'0';chr.style.boxShadow='none'}
+  const cr=cig.getBoundingClientRect(),er=emb.getBoundingClientRect();
+  tipX=cr.left+cr.width/2;tipY=cr.top;
+  glow.style.transform=`translate(${er.left+er.width/2-450}px,${er.top-450}px)`;
+  glow.style.opacity=S.dead?0:Math.min(1,(S.lit?.1:0)+t*.85);
+  // smoke emission: sidestream wisps from the tip
+  if(S.lit&&S.drawing&&Math.random()<dt*7*S.temp)D.push({x:tipX+(Math.random()-.5)*14*sc,y:tipY+10*sc,vx:(Math.random()-.5)*30,vy:-20-Math.random()*40,life:.6+Math.random()*.6,age:0,c:'#ffb347',s:1.6*sc,g:-25});
+  if(S.lit&&S.ash>8&&Math.random()<dt*.5)D.push({x:tipX+(Math.random()-.5)*12*sc,y:tipY+4,vx:(Math.random()-.5)*10,vy:0,life:1.2,age:0,c:'#8d8d90',s:1.5*sc});
+  if(S.lit||S.smolder>0){S.smolder=Math.max(0,S.smolder-(S.lit?0:dt));
+    S.sideAcc+=dt*(S.lit?(S.drawing?10:56):16)*(1+S.fbK*1.2);while(S.sideAcc>=1){spawnSide(tipX,tipY);S.sideAcc--}}
+  ctx.clearRect(0,0,W,H);if(S.haze>.01){ctx.globalAlpha=S.haze*.1;ctx.fillStyle='#b8c0cc';ctx.fillRect(0,0,W,H)}M.vx*=Math.exp(-dt*5);const wind=Math.sin(S.t*.3)*5*sc;
+  for(let i=P.length-1;i>=0;i--){const p=P[i];p.age+=dt;
+    if(p.age>=p.life){P[i]=P[P.length-1];P.pop();continue}
+    if(p.t){p.vy*=Math.exp(-.45*dt);p.vx+=(Math.sin(p.age*1.6+p.seed)*50+Math.sin(p.y*.012+p.seed*3)*40)*dt;p.vx*=Math.exp(-.3*dt);p.vx+=air(p)*dt*3}
+    else {const lam=Math.min(1,p.d/(40*sc)),tb=lam*lam*(3-2*lam);p.tb=tb; // laminar for the first 40px, then turbulent curls
+      p.vx=((Math.sin(p.age*2.1+p.seed)+.5*Math.sin(p.age*5.3+p.seed*2)+1.4*nz(p.y*.02,p.age*.8+p.seed))*(5+p.d*.2)*sc*.4+wind)*tb+air(p)+Math.sin(p.age*9+p.seed)*.6;
+      p.vy*=1-.3*dt*tb;p.d-=p.vy*dt;p.r+=(8+p.seed*1.3)*sc*dt*tb} // sine turbulence
+    p.x+=p.vx*dt;p.y+=p.vy*dt;p.r+=p.gr*dt;
+    const k=1-p.age/p.life;ctx.globalAlpha=p.a*Math.min(1,p.age/(p.t?.25:.15))*k*k*(p.t?1:1-.45*p.tb);const ga0=ctx.globalAlpha;
+    ctx.drawImage(p.dk?SD:p.t?SM:SS,p.x-p.r,p.y-p.r,p.r*2,p.r*2);
+    if(!p.t&&p.age<1.4&&t>.2){ctx.globalAlpha=ga0*(1-p.age/1.4)*t*.9;ctx.drawImage(SW,p.x-p.r,p.y-p.r,p.r*2,p.r*2)}} // smoke lit warm by the ember
+  for(let i=D.length-1;i>=0;i--){const d=D[i];d.age+=dt;if(d.age>=d.life){D[i]=D[D.length-1];D.pop();continue}
+    if(d.chunk){if(d.age>.4){dots(22,false,true,d.x,d.y);D[i]=D[D.length-1];D.pop();continue}d.rot+=d.vr*dt}
+    d.vy=Math.min(260,d.vy+(d.g===undefined?520:d.g)*dt);if(!d.chunk){d.vx+=Math.sin(d.age*9+d.s*5)*50*dt;d.rot=(d.rot||0)+(d.vr||0)*dt}d.x+=d.vx*dt;d.y+=d.vy*dt;ctx.globalAlpha=1-d.age/d.life;ctx.fillStyle=d.c;
+    if(d.chunk){ctx.save();ctx.translate(d.x+d.s/2,d.y);ctx.rotate(d.rot);ctx.fillRect(-d.s/2,0,d.s,d.h);ctx.restore()}else{ctx.save();ctx.translate(d.x,d.y);ctx.rotate(d.rot||0);ctx.beginPath();ctx.moveTo(-d.s,0);ctx.lineTo(-d.s*.2,-d.s*.8);ctx.lineTo(d.s,-d.s*.1);ctx.lineTo(d.s*.3,d.s*.9);ctx.closePath();ctx.fill();ctx.restore()}}
+  ctx.globalAlpha=1;
+}
+let last=performance.now();
+function frame(ts){const dt=Math.min(.05,(ts-last)/1000);last=ts;update(dt);render(dt);requestAnimationFrame(frame)}
+resize();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
